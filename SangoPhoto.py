@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import base64
 from PIL import Image
 from PIL.ExifTags import TAGS
 from datetime import datetime
@@ -50,7 +51,6 @@ if option == '追加':
         st.empty()
 
 elif option == '一覧表示':
-    if st.button("写真一覧表示"):
         if not os.path.exists(MRNo_directory):
             os.makedirs(MRNo_directory)
 
@@ -80,17 +80,68 @@ elif option == '一覧表示':
                     date_groups[date_taken] = []
                 date_groups[date_taken].append(image_path)
 
-        # 撮影日別に画像を表示
-        for date_taken, item_images in sorted(date_groups.items(), reverse=True):
-            st.subheader(f"日付: {date_taken}")
+        # # 撮影日別に画像を表示
+        # for date_taken, item_images in sorted(date_groups.items(), reverse=True):
+        #     st.subheader(f"日付: {date_taken}")
 
-            # 画面幅
-            container_width = st.container().width
-            cols = st.columns(5)
+        #     # 画面幅
+        #     container_width = st.container().width
+        #     cols = st.columns(5)
 
-            for i, image_path in enumerate(item_images):
-                with cols[i % 5]:
-                    with Image.open(image_path) as image:
-                        # 画像を表示（縦横比を保持）し、最大幅を指定
-                        st.image(image, use_container_width=True)
+        # セッションステートを使用して状態を保持
+        if "selected_image" not in st.session_state:
+            st.session_state.selected_image = None
 
+        if st.session_state.selected_image is None:
+            images = []
+            for date_taken, item_images in sorted(date_groups.items(), reverse=True):
+                st.subheader(f"日付: {date_taken}")
+
+                images = []  # リセットして日付ごとの画像を保持する
+                for file in item_images:  # item_images はその日付に関連付けられた画像リストファイルパスを組み立てる
+                    with open( file, "rb") as image:
+                        encoded = base64.b64encode(image.read()).decode()
+                        images.append(f"data:image/jpeg;base64,{encoded}")
+
+                # 各日付の画像を表示
+                clicked = clickable_images(
+                    images,
+                    titles=[f"Image #{str(i)}" for i in range(len(images))],
+                    div_style={"display": "flex", "justify-content": "center", "flex-wrap": "wrap"},
+                    img_style={"margin": "5px", "height": "200px"},
+                )
+                # クリックされた場合、選択された画像をセッションステートに保存
+                if clicked > -1:
+                    st.session_state.selected_image = images[clicked]
+                    break  # 一つ選択されたらループを抜ける
+        else:
+            st.markdown(
+                f"""
+                <div style="text-align: center;">
+                    <img src="{st.session_state.selected_image}" style="width: 100%; max-width: 100%; height: auto;"/>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            # 「戻る」ボタンを表示
+            if st.button("戻る"):
+                st.session_state.selected_image = None  # 選択状態をリセット
+
+            #st.markdown(f"Image #{clicked} clicked" if clicked > -1 else "No image clicked")
+
+        # for date_taken, item_images in sorted(date_groups.items(), reverse=True):
+        #     st.subheader(f"日付: {date_taken}")
+
+        #     for file in image_files:
+        #         with open(MRNo_directory +"\\"+ file, "rb") as image:
+        #             encoded = base64.b64encode(image.read()).decode()
+        #             images.append(f"data:image/jpeg;base64,{encoded}")
+
+        #     clicked = clickable_images(
+        #         images,
+        #         titles=[f"Image #{str(i)}" for i in range(len(images))],
+        #         div_style={"display": "flex", "justify-content": "center", "flex-wrap": "wrap"},
+        #         img_style={"margin": "5px", "height": "200px"},
+        #     )
+
+        # st.markdown(f"Image #{clicked} clicked" if clicked > -1 else "No image clicked")
