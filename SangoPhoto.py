@@ -1,11 +1,58 @@
 import streamlit as st
 import os
 import base64
+import sqlite3
 from PIL import Image
 from PIL.ExifTags import TAGS
 from datetime import datetime
 from streamlit_image_select import image_select
 from st_clickable_images import clickable_images
+from pathlib import Path
+
+# コメント用sql処理
+# データベース初期化
+def init_db():
+    conn = sqlite3.connect("comments.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id TEXT,
+            photo_name TEXT,
+            comment TEXT,
+            created TIMESTAMP DEFAULT (datetime(CURRENT_TIMESTAMP,'localtime'))
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# コメント保存
+def save_comment(customer_id, photo_name, comment):
+    conn = sqlite3.connect("comments.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO comments (customer_id, photo_name, comment)
+        VALUES (?, ?, ?)
+    """, (customer_id, photo_name, comment))
+    conn.commit()
+    conn.close()
+
+# コメント取得
+def get_comments(photo_name):
+    conn = sqlite3.connect("comments.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT comment, created FROM comments  
+        WHERE photo_name = ?
+        ORDER BY created DESC
+    """, (photo_name,))
+    comments = cursor.fetchall()
+    conn.close()
+    return [(comment, created) for comment, created in comments] 
+
+
+# 初期化
+init_db()
 
 # Supportive Aid for Needs in Global Operations by Photo management system
 st.title("SangoPhoto")
@@ -118,9 +165,20 @@ if medical_record_no != "":
                         st.rerun()
 
             else:
+                #日付の何番目のファイルを処理したか取得し、それに紐づくdirを取得する
+                os_pass =""
+                for dir in st.session_state.selected_image_directory:
+                    i = 0
+                    if dir[0] == st.session_state.clicked_date:
+                        if i == st.session_state.clicked:
+                            os_pass = dir[1]
+                            break
+                        else:
+                            i += 1
                 # セッション状態の初期化
                 if "delete_confirm" not in st.session_state:
                     st.session_state.delete_confirm = False 
+                
                 # 「戻る」ボタンを表示
                 if st.button("写真一覧に戻る"):
                     st.session_state.selected_image = None  # 選択状態をリセット
@@ -151,18 +209,9 @@ if medical_record_no != "":
                         "写真を削除します。よろしいですか？", options, selection_mode="single"
                     )
                     if selection=="削除":
-                        #日付の何番目のファイルを処理したか取得し、それに紐づくdirを取得する
-                        for dir in st.session_state.selected_image_directory:
-                            i = 0
-                            if dir[0] == st.session_state.clicked_date:
-                                if i == st.session_state.clicked:
-                                    os.remove(dir[1])
-                                    st.session_state.selected_image = None
-                                    st.rerun()
-                                    break
-                                else:
-                                    i += 1
-
+                        os.remove(os_pass)
+                        st.session_state.selected_image = None
+                        st.rerun()
                     if selection=="キャンセル":
                         st.rerun()
 
@@ -178,4 +227,14 @@ if medical_record_no != "":
                     unsafe_allow_html=True,
                 )
 
-                
+                # コメント表示と入力
+                comments = get_comments(os_pass)
+                for comment, timestamp in comments:
+                    st.write(f"- {comment} (投稿日: {timestamp})")
+
+
+                #コメント処理
+                comment = st.chat_input("コメントを追加")
+                if comment:
+                        save_comment(medical_record_no, os_pass, comment)
+                        st.rerun()
