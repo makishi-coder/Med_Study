@@ -50,6 +50,16 @@ def get_comments(photo_name):
     conn.close()
     return [(comment, created) for comment, created in comments] 
 
+# コメント削除
+def delete_comment(photo_name, created):
+    conn = sqlite3.connect("comments.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM comments
+        WHERE photo_name = ? AND created = ?
+    """, (photo_name, created))
+    conn.commit()
+    conn.close()
 
 # 初期化
 init_db()
@@ -178,6 +188,8 @@ if medical_record_no != "":
                 # セッション状態の初期化
                 if "delete_confirm" not in st.session_state:
                     st.session_state.delete_confirm = False 
+                if "comment_delete" not in st.session_state:
+                    st.session_state.comment_delete = False 
                 
                 # 「戻る」ボタンを表示
                 if st.button("写真一覧に戻る"):
@@ -188,13 +200,15 @@ if medical_record_no != "":
                 @st.dialog("menu",width="small")
                 def menu():
                     with st.container():
-                        if st.button("写真を削除",type="primary"):
+                        if st.button("写真を削除",type="primary",use_container_width=True):
                             st.session_state.delete_confirm  = True
                             st.rerun()
-                            
-                        if st.button("撮影日時を変更（未実装）"):
+                        if st.button("コメントを削除",use_container_width=True):
+                            st.session_state.comment_delete  = True
+                            st.rerun()                         
+                        if st.button("撮影日時を変更（未実装）",use_container_width=True):
                             pass
-                        if st.button("ダウンロード（未実装）"):
+                        if st.button("ダウンロード（未実装）",use_container_width=True):
                             pass
 
                 # ポップアップを開くボタン
@@ -204,15 +218,12 @@ if medical_record_no != "":
                 @st.dialog("削除確認",width="small")
                 def delete_confirm():
                     st.session_state.delete_confirm = False
-                    options = ["削除", "キャンセル"]
-                    selection = st.segmented_control(
-                        "写真を削除します。よろしいですか？", options, selection_mode="single"
-                    )
-                    if selection=="削除":
+                    st.text("写真を削除します。よろしいですか？")
+                    if st.button("削除",type="primary",use_container_width=True):
                         os.remove(os_pass)
                         st.session_state.selected_image = None
                         st.rerun()
-                    if selection=="キャンセル":
+                    if st.button("キャンセル",use_container_width=True):
                         st.rerun()
 
                 if st.session_state.delete_confirm == True:
@@ -229,10 +240,21 @@ if medical_record_no != "":
 
                 # コメント表示と入力
                 comments = get_comments(os_pass)
-                for comment, timestamp in comments:
-                    st.write(f"- {comment} (投稿日: {timestamp})")
-
-
+                if st.session_state.comment_delete == False:
+                    for comment, timestamp in comments:
+                        st.write(f"- {comment} (投稿日: {timestamp})")
+                else:
+                    i = 0
+                    for comment, timestamp in comments:
+                        col1, col2 = st.columns([0.9, 0.1])
+                        with col1:
+                            st.write(f"- {comment} (投稿日: {timestamp})")
+                        with col2:
+                            if st.button("",icon=":material/delete_forever:",key=i):
+                                delete_comment(os_pass, timestamp)
+                                st.session_state.comment_delete = False
+                                st.rerun()
+                            i += 1
                 #コメント処理
                 comment = st.chat_input("コメントを追加")
                 if comment:
