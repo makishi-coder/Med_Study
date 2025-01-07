@@ -1,13 +1,94 @@
 import streamlit as st
+import openai
 import os
 import base64
 import sqlite3
+import requests
+import time
+import re
+
 from PIL import Image
 from PIL.ExifTags import TAGS
 from datetime import datetime
 from streamlit_image_select import image_select
 from st_clickable_images import clickable_images
 from pathlib import Path
+
+from azure.cognitiveservices.vision.computervision import ComputerVisionClient
+from msrest.authentication import CognitiveServicesCredentials
+from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
+from azure.cognitiveservices.vision.computervision.models import ComputerVisionOcrErrorException
+import io
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+
+key = os.getenv("AZURE_API_KEY")
+endpoint = os.getenv("AZURE_ENDPOINT")
+openai.api_key = os.getenv("OPENAI_API_KEY")
+########
+
+def process_image(image_bytes):
+    print("process_image")
+    computervision_client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(key))
+    # 画像をストリームに変換
+    try:
+        recognize_results = computervision_client.read_in_stream(io.BytesIO(image_bytes), language="ja", raw=True)
+    except Exception as e:
+        st.error(f"エラーが発生しました: {e}")
+        return None
+
+    # 結果を取得するための操作IDを取得
+    operation_location_remote = recognize_results.headers["Operation-Location"]
+    operation_id = operation_location_remote.split("/")[-1]
+
+    # 結果が利用可能になるまで待つ
+    while True:
+        get_text_results = computervision_client.get_read_result(operation_id)
+        if get_text_results.status not in ["notStarted", "running"]:
+            break
+        time.sleep(1)
+
+    # テキストの出力
+    if get_text_results.status == OperationStatusCodes.succeeded:
+        extracted_text = []
+        for text_result in get_text_results.analyze_result.read_results:
+            for line in text_result.lines:
+                extracted_text.append(line.text)
+        return extracted_text
+    else:
+        st.error("OCR処理に失敗しました。")
+        return None
+########
+def extract_medical_id(input_text):
+    """
+    ChatGPT APIを使用して診療番号を抽出する関数 (新しいAPI対応)
+    """
+    messages = [
+        {"role": "system", "content": "You are an assistant that extracts information from text."},
+        {
+            "role": "user",
+            "content": (
+                "Extract the medical record number from the following text. "
+                "The medical record number is a sequence of digits that identifies a patient's record. "
+                 "Please return only the sequense of digits that looks like a medical record number.\n"
+                "If no such number exists, respond with 'No number found'.\n\n"
+                f"Text: {input_text}\n\n"
+                "Medical Record Number:"
+            ),
+        },
+    ]
+
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",  # 最も安価なモデル
+            messages=messages,
+            max_tokens=30,  # 必要な応答を最小限に抑える
+            temperature=0,  # 一貫性のある応答を得る
+        )
+        answer = response.choices[0].message.content.strip()
+        return answer
+    except Exception as e:
+        return f"Error: {e}"
 
 # コメント用sql処理
 # データベース初期化
@@ -67,13 +148,45 @@ init_db()
 # Supportive Aid for Needs in Global Operations by Photo management system
 st.title("SangoPhoto")
 
-if st.button("診療番号取得"):
-    st.text("test1")
+# session_state の初期化
+if "camera_image" not in st.session_state:
+    st.session_state["camera_image"] = None
+
+medical_id = ""
+if st.button("診療番号取得") or st.session_state.camera_image:
+    st.session_state.camera_image = True
+    x = st.camera_input(label="診療番号の写真をとってください", key="camera_input_file")
+    if x is not None:
+        st.image(x.getvalue(), caption="Your photo", use_column_width=True)
+        st.session_state.camera_image = False
+        #with st.spinner("OCR処理中..."):
+            # 画像をバイトとして処理
+            #image_bytes = x.getvalue()
+            #ocr_result = process_image(image_bytes)
+            #if ocr_result:
+            #    st.success("OCR処理完了！")
+            #    st.write("認識されたテキスト:")
+            #    st.text("\n".join(ocr_result))
+
+        with st.spinner("OCR処理中..."):
+            #画像をバイトとして処理
+            image_bytes = x.getvalue()
+            ocr_result = process_image(image_bytes)
+            if ocr_result:
+                medical_id = extract_medical_id(ocr_result)
+            #    st.success("OCR処理完了！")
+            #    st.write("認識されたテキスト:")
+                st.text("\n".join(ocr_result))
+                st.text(medical_id)
 
 def reset_seletection():
     selection = ""
 
-medical_record_no = st.text_input("診療番号を入力してください", value="00000001",on_change=reset_seletection)
+if medical_id !="No number found" and medical_id !="":
+    number = re.search(r'\d+', medical_id).group()
+    medical_record_no = st.text_input("診療番号を入力してください", value=number,on_change=reset_seletection)
+else:
+    medical_record_no = st.text_input("診療番号を入力してください", value="00000001",on_change=reset_seletection)
 
 # Pythonファイルがあるディレクトリを取得
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -255,6 +368,7 @@ if medical_record_no != "":
                                 st.session_state.comment_delete = False
                                 st.rerun()
                             i += 1
+
                 #コメント処理
                 comment = st.chat_input("コメントを追加")
                 if comment:
