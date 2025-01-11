@@ -14,43 +14,14 @@ from azure.core.credentials import AzureKeyCredential
 from streamlit_float import *
 import time
 
+
 st.header("SkinSnap")
 key = os.getenv("AZURE_API_KEY")
 endpoint = os.getenv("AZURE_ENDPOINT")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# 戻るボタン
-button_container = st.container()
-with button_container:
-    option_map = {
-        0: ":material/arrow_back:",
-    }
-    selection_left = st.pills("back",
-        options=option_map.keys(),
-        format_func=lambda option: option_map[option],
-        selection_mode="single",
-        label_visibility="hidden",
-    )
-    if selection_left == 0:
-        st.switch_page("app.py")
-
-
-button_css = float_css_helper(width="1rem", left="2rem", bottom='1rem', transition=0)
-button_container.float(button_css)
-
-def register_patient(PatientId,name):
-    conn = sqlite3.connect("patients.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO patients (id, name)
-        VALUES (?, ?)
-    """, (PatientId, name))
-    conn.commit()
-    conn.close()
-
 
 def get_from_pic():
-
     x = st.camera_input(label="診察券の写真をとってください", key="camera_input_file")
     if x is not None:
         st.image(x, use_container_width=True)
@@ -150,14 +121,3 @@ def extract_medical_id(input_text):
         # その他のエラー処理
         st.error(f"エラー: {e}")
         return None, None
-
-
-ex_id=""
-ex_name=""
-if st.toggle("カメラによる入力"):
-    ex_id,ex_name = get_from_pic()
-id = st.text_input("患者ID", value=ex_id)
-name = st.text_input("患者名", value=ex_name)
-if st.button("登録",type="primary",use_container_width=True):
-    register_patient(id,name)
-    st.switch_page("app.py")

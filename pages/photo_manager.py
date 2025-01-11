@@ -51,7 +51,7 @@ def delete_patient(patient_id):
     conn.close()
     print(f"患者ID '{patient_id}' のデータが削除されました。")
 
-def update_patient(patient_id, new_name):
+def update_patient_db(patient_id, new_name):
     conn = sqlite3.connect("patients.db")
     cursor = conn.cursor()
     cursor.execute("UPDATE patients SET name = ? WHERE id = ?", (new_name, patient_id))
@@ -66,7 +66,7 @@ def update_Patient(id,name):
         name = st.text_input("患者名",value=name)
         with st.container():
             if st.button("変更",type="primary",use_container_width=True):
-                update_patient(id,name)
+                update_patient_db(id,name)
                 st.session_state["PatientName"] = name
                 st.rerun()
             elif st.button("削除",type="secondary",use_container_width=True):
@@ -99,10 +99,7 @@ with button_container2:
 button_css2 = float_css_helper(width="2rem", right="1.5rem", bottom='1rem', transition=0)
 button_container2.float(button_css2)
 
-
-
 PatientID=st.session_state["PatientID"]
-
 
 # Pythonファイルがあるディレクトリを取得
 current_directory = os.path.dirname(os.path.abspath(__file__))

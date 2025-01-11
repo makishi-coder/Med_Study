@@ -2,10 +2,25 @@ import streamlit as st
 import pandas as pd
 import os
 import sqlite3
+import utils.func
+
 from st_aggrid import GridOptionsBuilder, AgGrid
 from st_aggrid.shared import JsCode
 import base64
+import openai
+import time
 from streamlit_float import *
+from azure.cognitiveservices.vision.computervision import ComputerVisionClient
+from msrest.authentication import CognitiveServicesCredentials
+from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
+from azure.cognitiveservices.vision.computervision.models import ComputerVisionOcrErrorException
+import io
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+
+key = os.getenv("AZURE_API_KEY")
+endpoint = os.getenv("AZURE_ENDPOINT")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # データベース接続
 def get_db_connection():
@@ -28,34 +43,6 @@ def initialize_database():
     conn.close()
 
 initialize_database()  # 初期化
-
-def register_patient(PatientId,name):
-    conn = sqlite3.connect("patients.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO patients (id, name)
-        VALUES (?, ?)
-    """, (PatientId, name))
-    conn.commit()
-    conn.close()
-
-
-def delete_patient(patient_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
-    conn.commit()
-    conn.close()
-    print(f"患者ID '{patient_id}' のデータが削除されました。")
-
-def update_patient(patient_id, new_name):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE patients SET name = ? WHERE id = ?", (new_name, patient_id))
-    conn.commit()
-    conn.close()
-    print(f"患者ID '{patient_id}' の名前が '{new_name}' に変更されました。")
-
 def list_patient():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -76,8 +63,6 @@ with header_container:
 header_css = float_css_helper(width="30rem", right="0rem", top='2.5rem', transition=50,background="rgba(255, 255, 255, 0.35)")
 header_container.float(header_css)
 
-# 検索処理
-st.text("画像を見たい患者をリストから選択してください")
 # 画像をBase64で読み込む関数
 def ReadPictureFile(wch_fl):
     try:
@@ -161,7 +146,31 @@ def create_patient_dataframe():
 
 # データフレームを作成
 # 検索フォーム
-search_text = st.text_input("検索 :material/search:")
+ex_id = ""
+ex_name = ""
+if "camera_image" not in st.session_state:
+    st.session_state.camera_image = None
+
+if st.toggle("カメラによる入力"):
+
+    x = st.camera_input(label="診察券の写真をとってください", key="camera_input_file")
+    if x is not None:
+        st.image(x, use_container_width=True)
+        if st.session_state.camera_image != x:
+            st.session_state.camera_image = x
+            with st.spinner("OCR処理中..."):
+                #画像をバイトとして処理
+                image_bytes = x.getvalue()
+                ocr_result = utils.func.process_image(image_bytes)
+                print(ocr_result)
+                if ocr_result:
+                    ex_id,ex_name = utils.func.extract_medical_id(ocr_result)
+
+
+search_text = st.text_input("検索",value=ex_id,label_visibility="hidden",placeholder="検索")
+
+# 検索処理
+st.text("画像を見たい患者をリストから選択してください")
 
 # データ表示
 if search_text:
@@ -177,22 +186,6 @@ else:
         if imgExtn != "":
             df.loc[i, 'ImgPath'] = f"data:image/{imgExtn};base64," + ReadPictureFile(row['ImgPath'])
 
-    # データフレームの準備
-    #df = pd.DataFrame({
-    #    'PatientID': ['0000001', '0000002', '0000003', '0000004'],  # 患者IDを追加
-    #    'Name': ['Iron Man', 'Walter White', 'Wonder Woman', 'Bat Woman'],
-    #    'ImgPath': ['assets/Picture/0000001/20250107_155511_image.jpg', 
-    #                'C:\\Users\\Rei Makishi\\github\\Med_Study\\assets\\Picture\\0000001\\20250107_155530_image.jpg', 
-    #                'https://i.pinimg.com/originals/ab/26/c3/ab26c351e435242658c3783710e78163.jpg',
-    #                'https://img00.deviantart.net/85f5/i/2012/039/a/3/batwoman_headshot_4_by_ricber-d4p1y86.jpg']
-    #})
-
-    # ローカル画像をBase64に変換
-    #for i, row in df.iterrows():
-    #    imgExtn = row['ImgPath'][-3:]
-    #    if imgExtn !="":
-    #        row['ImgPath'] = f"data:image/{imgExtn};base64," + ReadPictureFile(row['ImgPath'])
-    #print(df)
 
     # カラム順を「写真」「患者名」「患者ID」に変更
     df = df[['ImgPath', 'Name', 'PatientID']]
@@ -214,7 +207,7 @@ else:
     # session_state の初期化
     if "PatientID" not in st.session_state:
         st.session_state["PatientID"] = None
-    if "PatientID" not in st.session_state:
+    if "PatientName" not in st.session_state:
         st.session_state["PatientName"] = None
 
     if response['selected_rows'] is not None:
@@ -222,19 +215,11 @@ else:
         st.session_state["PatientName"] = response['selected_rows']['Name'].iloc[0]
         st.switch_page("pages/photo_manager.py")
 
-    # 登録
-    @st.dialog("患者登録画面",width="small")
-    def add_Patient():
-        with st.container():
-            id = st.text_input("患者ID")
-            name = st.text_input("患者名")
-            if st.button("登録"):
-                register_patient(id,name)
-                st.rerun()
 
     button_container = st.container()
     with button_container:
         if st.button("👤✚"):
-            add_Patient()
+            st.switch_page("pages/patient_manager.py")
+
     button_css = float_css_helper(width="1rem", right="4rem", bottom='1rem', transition=0)
     button_container.float(button_css)
