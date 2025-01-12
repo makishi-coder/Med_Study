@@ -2,6 +2,7 @@ import streamlit as st
 import sqlite3
 import openai
 import json
+from PIL import Image
 from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from msrest.authentication import CognitiveServicesCredentials
 from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
@@ -13,9 +14,78 @@ from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from streamlit_float import *
 import time
+import const
+
+# タブ情報
+def set_tab():
+    im = Image.open("assets/logo_header.ico")
+    st.set_page_config(
+        page_title="SkinSnap",
+        page_icon=im,
+        layout="wide",
+    )
+# ヘッダー部分に患者情報を固定
+# ヘッダーとしてHTMLを使用
+
+def set_header():
+    HIDE_ST_STYLE = """
+                    <style>
+                    div[data-testid="stToolbar"] {
+                    visibility: hidden;
+                    height: 0%;
+                    position: fixed;
+                    }
+                    div[data-testid="stDecoration"] {
+                    visibility: hidden;
+                    height: 0%;
+                    position: fixed;
+                    }
+                    #MainMenu {
+                    visibility: hidden;
+                    height: 0%;
+                    }
+                    header {
+                    visibility: hidden;
+                    height: 0%;
+                    }
+                    footer {
+                    visibility: hidden;
+                    height: 0%;
+                    }
+                            .appview-container .main .block-container{
+                                padding-top: 1rem;
+                                padding-right: 3rem;
+                                padding-left: 3rem;
+                                padding-bottom: 1rem;
+                            }  
+                            .reportview-container {
+                                padding-top: 0rem;
+                                padding-right: 3rem;
+                                padding-left: 3rem;
+                                padding-bottom: 0rem;
+                            }
+                            header[data-testid="stHeader"] {
+                                z-index: -1;
+                            }
+                            div[data-testid="stToolbar"] {
+                            z-index: 100;
+                            }
+                            div[data-testid="stDecoration"] {
+                            z-index: 100;
+                            }
+                    </style>
+    """
+
+    st.markdown(const.HIDE_ST_STYLE, unsafe_allow_html=True)
 
 
-st.header("SkinSnap")
+    header_container = st.container()
+    with header_container:
+        st.image("assets\\logo1.png",width=380)
+    header_css = float_css_helper(width="35rem", left="0rem", top='0.0rem', transition=50,background="rgba(255, 255, 255, 1)")
+    header_container.float(header_css)
+    
+
 key = os.getenv("AZURE_API_KEY")
 endpoint = os.getenv("AZURE_ENDPOINT")
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -112,11 +182,11 @@ def extract_medical_id(input_text):
 
         st.write(f"ChatGPT APIからの回答: {answer}")
         return patient_id, patient_name
-    
+
     except json.JSONDecodeError:
         st.error("API応答をJSONとして解析できませんでした。")
         return None, None
-    
+
     except Exception as e:
         # その他のエラー処理
         st.error(f"エラー: {e}")

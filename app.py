@@ -4,6 +4,7 @@ import os
 import sqlite3
 import utils.func
 
+
 from st_aggrid import GridOptionsBuilder, AgGrid
 from st_aggrid.shared import JsCode
 import base64
@@ -17,6 +18,19 @@ from azure.cognitiveservices.vision.computervision.models import ComputerVisionO
 import io
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
+from concurrent.futures import ThreadPoolExecutor
+
+utils.func.set_tab()
+utils.func.set_header()
+
+button_container = st.container()
+with button_container:
+    if st.button("👤✚"):
+        st.switch_page("pages/patient_manager.py")
+
+button_css = float_css_helper(width="1rem", right="4rem", bottom='1rem', transition=0)
+button_container.float(button_css)
+
 
 key = os.getenv("AZURE_API_KEY")
 endpoint = os.getenv("AZURE_ENDPOINT")
@@ -52,17 +66,7 @@ def list_patient():
     for row in rows:
         print(dict(row))
 
-
-
-# ヘッダー部分に患者情報を固定
-# ヘッダーとしてHTMLを使用
-
-header_container = st.container()
-with header_container:
-    st.header(" SkinSnap")
-header_css = float_css_helper(width="30rem", right="0rem", top='2.5rem', transition=50,background="rgba(255, 255, 255, 0.35)")
-header_container.float(header_css)
-
+st.write("")
 # 画像をBase64で読み込む関数
 def ReadPictureFile(wch_fl):
     try:
@@ -117,25 +121,26 @@ def get_patient_image_path(patient_id):
     current_directory = os.path.dirname(os.path.abspath(__file__))
     picture_directory = os.path.join(current_directory, 'pages','assets', 'Picture')
     patient_dir = os.path.join(picture_directory, patient_id)
-    #patient_dir = os.path.join(base_dir, str(patient_id))
+    thumbnail_dir = os.path.join(patient_dir, 'thumbnail')
+
     allowed_extensions = [".jpg", ".jpeg", ".png"]
     
-    if not os.path.exists(patient_dir):
+    if not os.path.exists(thumbnail_dir):
         return ""
 
     # ファイルをタイムスタンプ順でソート (降順: 最新ファイルが先頭)
 
     image_files = [
-        file for file in os.listdir(patient_dir)
+        file for file in os.listdir(thumbnail_dir)
         if os.path.splitext(file)[1].lower() in allowed_extensions
     ]
     
     if not image_files:
         return ""
-    image_files.sort(key=lambda x: os.path.getmtime(os.path.join(patient_dir, x)), reverse=True)
+    image_files.sort(key=lambda x: os.path.getmtime(os.path.join(thumbnail_dir, x)), reverse=True)
     
     # 最初の画像のパスを返す
-    return os.path.join(patient_dir, image_files[0])
+    return os.path.join(thumbnail_dir, image_files[0])
 
 
 # データフレームの作成と画像パスの追加
@@ -143,6 +148,34 @@ def create_patient_dataframe():
     df = fetch_patient_data()
     df["ImgPath"] = df["PatientID"].apply(get_patient_image_path)
     return df
+
+
+# 画像をBase64エンコードする関数
+def encode_image_to_base64(img_path):
+    # 空のパスやNoneの場合は処理しない
+    if img_path == "" or pd.isna(img_path):
+        return None  # 空の場合はNoneを返す
+
+    try:
+        with open(img_path, 'rb') as img_file:
+            img_data = img_file.read()
+        return base64.b64encode(img_data).decode('utf-8')
+    except FileNotFoundError:
+        return None  # ファイルが見つからない場合はNoneを返す
+
+# 並列で画像をエンコードする関数
+def process_images(df):
+    img_paths = df['ImgPath']
+    # 並列処理を使って画像を一括でBase64エンコード
+    with ThreadPoolExecutor() as executor:
+        base64_images = list(executor.map(encode_image_to_base64, img_paths))
+        # Base64のデータURLを作成
+    df['ImgPath'] = [
+        f"data:image/{path.split('.')[-1]};base64,{img}" if img else "" 
+        for path, img in zip(df['ImgPath'], base64_images)
+    ]
+    return df
+
 
 # データフレームを作成
 # 検索フォーム
@@ -152,7 +185,6 @@ if "camera_image" not in st.session_state:
     st.session_state.camera_image = None
 
 if st.toggle("カメラによる入力"):
-
     x = st.camera_input(label="診察券の写真をとってください", key="camera_input_file")
     if x is not None:
         st.image(x, use_container_width=True)
@@ -166,7 +198,6 @@ if st.toggle("カメラによる入力"):
                 if ocr_result:
                     ex_id,ex_name = utils.func.extract_medical_id(ocr_result)
 
-
 search_text = st.text_input("検索",value=ex_id,label_visibility="hidden",placeholder="検索")
 
 # 検索処理
@@ -179,12 +210,8 @@ else:
     df = create_patient_dataframe()
 if df.empty:
     st.warning("患者が見つかりませんでした。")
-    st.stop()
 else:
-    for i, row in df.iterrows():
-        imgExtn = row['ImgPath'][-3:]
-        if imgExtn != "":
-            df.loc[i, 'ImgPath'] = f"data:image/{imgExtn};base64," + ReadPictureFile(row['ImgPath'])
+    df=process_images(df)
 
 
     # カラム順を「写真」「患者名」「患者ID」に変更
@@ -215,11 +242,3 @@ else:
         st.session_state["PatientName"] = response['selected_rows']['Name'].iloc[0]
         st.switch_page("pages/photo_manager.py")
 
-
-    button_container = st.container()
-    with button_container:
-        if st.button("👤✚"):
-            st.switch_page("pages/patient_manager.py")
-
-    button_css = float_css_helper(width="1rem", right="4rem", bottom='1rem', transition=0)
-    button_container.float(button_css)

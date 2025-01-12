@@ -1,8 +1,11 @@
 import streamlit as st
 import sqlite3
 import os
+import utils.func
 from streamlit_float import *
 
+utils.func.set_tab()
+utils.func.set_header()
 if "delete_confirm" not in st.session_state:
     st.session_state.delete_confirm = False 
 if "comment_delete" not in st.session_state:
@@ -29,6 +32,9 @@ def delete_confirm():
     st.text("写真を削除します。よろしいですか？")
     if st.button("削除",type="primary",use_container_width=True):
         os.remove(st.session_state.os_pass)
+        thumbnail = st.session_state.os_pass.replace(st.session_state["PatientID"] ,st.session_state["PatientID"] +"\\thumbnail")
+        print(thumbnail)
+        os.remove(thumbnail)
         st.session_state.selected_image = None
         st.switch_page("pages/photo_manager.py")
     if st.button("キャンセル",use_container_width=True):
@@ -52,27 +58,17 @@ with button_container:
     )
     if selection_left == 0:
         st.switch_page("pages/photo_manager.py")
-button_css = float_css_helper(width="1rem", left="2rem", top='2.5rem', transition=0)
+button_css = float_css_helper(width="1rem", left="2rem", top='5.5rem', transition=0)
 button_container.float(button_css)
 
 # メニューボタン
 button_container2 = st.container()
 with button_container2:
-#    option_map = {
-#        0: ":material/Menu:",
-#    }
-#    selection_left = st.pills("back",
-#        options=option_map.keys(),
-#        format_func=lambda option: option_map[option],
-###        selection_mode="single",
-#        label_visibility="hidden",
-#    )
- #   if selection_left == 0:
- #       menu()
+
     if st.button(":material/Menu:"):
         menu()
 
-button_css2 = float_css_helper(width="1rem", right="2.3rem", top='4.5rem', transition=0)
+button_css2 = float_css_helper(width="1rem", right="2.3rem", top='7rem', transition=0)
 button_container2.float(button_css2)
 
 # コメント用sql処理
@@ -143,24 +139,16 @@ def update_comment(photo_name, created, new_comment):
 init_db()
 
 os_pass =""
-i = 0
-for dir in st.session_state.selected_image_directory:
-    if dir[0] == st.session_state.clicked_date:
-        if i == st.session_state.clicked:
-            os_pass = dir[1]
-            st.session_state.os_pass = os_pass
-            break
-        else:
-            i += 1
-
-st.markdown(
-    f"""
-    <div style="text-align: center;">
-        <img src="{st.session_state.selected_image}" style="width: 100%; max-width: 100%; height: auto;"/>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+#i = 0
+#for dir in st.session_state.selected_image_directory:
+#    if dir[0] == st.session_state.clicked_date:
+#        if i == st.session_state.clicked:
+#            os_pass = dir[1]
+#            st.session_state.os_pass = os_pass
+#            break
+#        else:
+#            i += 1
+st.image(st.session_state.os_pass.replace("\\thumbnail" ,""))
 
 # コメント表示と入力
 comments = get_comments(os_pass)

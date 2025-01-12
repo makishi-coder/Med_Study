@@ -2,6 +2,7 @@ import streamlit as st
 import sqlite3
 import openai
 import json
+import utils.func
 from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from msrest.authentication import CognitiveServicesCredentials
 from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
@@ -14,7 +15,8 @@ from azure.core.credentials import AzureKeyCredential
 from streamlit_float import *
 import time
 
-st.header("SkinSnap")
+utils.func.set_tab()
+utils.func.set_header()
 key = os.getenv("AZURE_API_KEY")
 endpoint = os.getenv("AZURE_ENDPOINT")
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -154,10 +156,13 @@ def extract_medical_id(input_text):
 
 ex_id=""
 ex_name=""
+invalid_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|']
 if st.toggle("カメラによる入力"):
     ex_id,ex_name = get_from_pic()
 id = st.text_input("患者ID", value=ex_id)
 name = st.text_input("患者名", value=ex_name)
 if st.button("登録",type="primary",use_container_width=True):
+    if any(char in id for char in invalid_chars):
+        st.error("患者IDには以下の文字を使用できません: \\ / : * ? \" < > |")
     register_patient(id,name)
     st.switch_page("app.py")

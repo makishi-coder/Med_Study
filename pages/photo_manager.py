@@ -2,25 +2,26 @@ import streamlit as st
 import os
 import base64
 import sqlite3
-
+import utils.func
 from streamlit_float import *
 from PIL import Image
 from PIL.ExifTags import TAGS
 from datetime import datetime
 from st_clickable_images import clickable_images
 
-st.header("")
+utils.func.set_tab()
+utils.func.set_header()
+if "delete_confirm" not in st.session_state:
+    st.session_state.delete_confirm = False
 
 # ヘッダー部分に患者情報を固定
 # ヘッダーとしてHTMLを使用
 
 header_container = st.container()
 with header_container:
-    st.header(" SkinSnap")
     st.text(" 患者ID：" + st.session_state["PatientID"])
     st.text(" 患者名：" + st.session_state["PatientName"])
-
-header_css = float_css_helper(width="30rem", right="0rem", top='2.5rem', transition=50,background="rgba(255, 255, 255, 0.35)")
+header_css = float_css_helper(width="10rem", right="0rem", top='1rem', transition=50,background="rgba(255, 255, 255, 0)")
 header_container.float(header_css)
 
 # 戻るボタン
@@ -59,7 +60,23 @@ def update_patient_db(patient_id, new_name):
     conn.close()
 
 # 患者変更・削除
-@st.dialog("患者変更・削除画面",width="small")
+
+@st.dialog("削除確認",width="small")
+def delete_confirm(id):
+    st.text("患者情報を削除します。写真情報も削除されますがよろしいですか？")
+    if st.button("削除",type="primary",use_container_width=True):
+        delete_patient(id)
+        st.session_state.os_pass = None
+        st.switch_page("app.py")
+    if st.button("キャンセル",use_container_width=True):
+        st.rerun()
+
+if st.session_state.delete_confirm  == True:
+    st.session_state.delete_confirm  = False
+    delete_confirm(st.session_state.PatientID)
+
+
+@st.dialog("患者情報の変更・削除",width="small")
 def update_Patient(id,name):
     with st.container():
         st.text("患者ID：" + id)
@@ -70,8 +87,8 @@ def update_Patient(id,name):
                 st.session_state["PatientName"] = name
                 st.rerun()
             elif st.button("削除",type="secondary",use_container_width=True):
-                delete_patient(id)
-                st.switch_page("app.py")
+                st.session_state.delete_confirm  = True
+                st.rerun()
 
 
 button_container3 = st.container()
@@ -105,15 +122,19 @@ PatientID=st.session_state["PatientID"]
 current_directory = os.path.dirname(os.path.abspath(__file__))
 picture_directory = os.path.join(current_directory, 'assets', 'Picture')
 MRNo_directory = os.path.join(picture_directory, PatientID)
+thumbnail_dir = os.path.join(MRNo_directory, 'thumbnail')
 
 if not os.path.exists(picture_directory):
     os.makedirs(picture_directory)
 if not os.path.exists(MRNo_directory):
     os.makedirs(MRNo_directory)
+if not os.path.exists(thumbnail_dir):
+    os.makedirs(thumbnail_dir)
 
 def get_image_date(image_path):
     try:
         with Image.open(image_path) as img:
+            img.thumbnail((10, 10))
             exif_data = img._getexif()
             if exif_data is not None:
                 for tag, value in exif_data.items():
@@ -125,12 +146,12 @@ def get_image_date(image_path):
     return datetime.fromtimestamp(creation_time).date()
 
 # 画像ファイル名を取得
-image_files = [f for f in os.listdir(MRNo_directory) if f.endswith((".png", ".jpg", ".jpeg"))]
+image_files = [f for f in os.listdir(thumbnail_dir) if f.endswith((".webp", ".jpg", ".jpeg", ".png"))]
 
 # 撮影日別に画像を分類
 date_groups = {}
 for image_file in image_files:
-    image_path = os.path.join(MRNo_directory, image_file)
+    image_path = os.path.join(thumbnail_dir, image_file)
     date_taken = get_image_date(image_path)
     if date_taken:
         if date_taken not in date_groups:
@@ -156,12 +177,21 @@ for date_taken, item_images in sorted(date_groups.items(), reverse=True):
         images,
         titles=[file],
         div_style={"display": "flex", "justify-content": "center", "flex-wrap": "wrap", "overflow": "auto"},
-        img_style={"margin": "5px", "height": "200px"},
+        img_style={"margin": "5px", "height": "80px"},
     )
     # クリックされた場合、選択された画像をセッションステートに保存
     if clicked > -1:
-        st.session_state.selected_image = images[clicked]
-        st.session_state.clicked = clicked
-        st.session_state.selected_image_directory = files_dir
-        st.session_state.clicked_date = date_taken
+        i = 0
+        for dir in files_dir:
+            if dir[0] == date_taken:
+                if i == clicked:
+                    os_pass = dir[1]
+                    st.session_state.os_pass = os_pass
+                    break
+                else:
+                    i += 1
+        #st.session_state.selected_image = images[clicked]
+        #st.session_state.clicked = clicked
+        #st.session_state.selected_image_directory = files_dir.replace("\\thumbnail" ,"")
+        #st.session_state.clicked_date = date_taken
         st.switch_page("pages/detail_picture.py")
