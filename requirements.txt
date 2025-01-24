@@ -1,0 +1,8 @@
+openai
+azure-cognitiveservices-vision-computervision
+azure-ai-formrecognizer
+streamlit_float
+streamlit-aggrid
+st_clickable_images 
+tensorflow
+piexif
