@@ -17,15 +17,94 @@ import time
 import const
 
 # タブ情報
-def set_tab():
+def set_tab(background_color="#FFFFFF"):
+    """
+    ページ設定と背景色を設定する関数。
+    
+    Parameters:
+        background_color (str): 背景色のカラーコード (デフォルト: 白 "#FFFFFF")。
+    """
+    # ページアイコンの設定
     im = Image.open("assets/logo_header.ico")
+    
+    # ページ設定を最初に実行
     st.set_page_config(
         page_title="SkinSnap",
         page_icon=im,
         layout="wide",
     )
+
+    # 背景色をCSSで設定
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-color: {background_color};
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 # ヘッダー部分に患者情報を固定
 # ヘッダーとしてHTMLを使用
+
+def set_header_home():
+    HIDE_ST_STYLE = """
+                    <style>
+                    div[data-testid="stToolbar"] {
+                    visibility: hidden;
+                    height: 0%;
+                    position: fixed;
+                    }
+                    div[data-testid="stDecoration"] {
+                    visibility: hidden;
+                    height: 0%;
+                    position: fixed;
+                    }
+                    #MainMenu {
+                    visibility: hidden;
+                    height: 0%;
+                    }
+                    header {
+                    visibility: hidden;
+                    height: 0%;
+                    }
+                    footer {
+                    visibility: hidden;
+                    height: 0%;
+                    }
+                            .appview-container .main .block-container{
+                                padding-top: 1rem;
+                                padding-right: 3rem;
+                                padding-left: 3rem;
+                                padding-bottom: 1rem;
+                            }  
+                            .reportview-container {
+                                padding-top: 0rem;
+                                padding-right: 3rem;
+                                padding-left: 3rem;
+                                padding-bottom: 0rem;
+                            }
+                            header[data-testid="stHeader"] {
+                                z-index: -1;
+                            }
+                            div[data-testid="stToolbar"] {
+                            z-index: 100;
+                            }
+                            div[data-testid="stDecoration"] {
+                            z-index: 100;
+                            }
+                    </style>
+    """
+
+    st.markdown(const.HIDE_ST_STYLE, unsafe_allow_html=True)
+
+    header_container = st.container()
+    with header_container:
+        st.image("assets\\logo_home.png",width=500)
+    header_css = float_css_helper(width="50rem", left="1rem", top='0.0rem', transition=50,background="rgba(255, 255, 255, 1)")
+    header_container.float(header_css)
 
 def set_header():
     HIDE_ST_STYLE = """
@@ -81,15 +160,39 @@ def set_header():
 
     header_container = st.container()
     with header_container:
-        st.image("assets\\logo1.png",width=380)
-    header_css = float_css_helper(width="35rem", left="0rem", top='0.0rem', transition=50,background="rgba(255, 255, 255, 1)")
+        st.image("assets\\logo.png",width=500)
+    header_css = float_css_helper(width="500rem", left="0rem", top='0.0rem', transition=50,background="rgba(255, 255, 255, 1)")
     header_container.float(header_css)
-    
 
 key = os.getenv("AZURE_API_KEY")
 endpoint = os.getenv("AZURE_ENDPOINT")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+
+# 写真ディレクトリから画像パスを取得
+def get_patient_image_path(patient_id):
+    current_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    picture_directory = os.path.join(current_directory, 'pages','assets', 'Picture')
+    patient_dir = os.path.join(picture_directory, patient_id)
+    thumbnail_dir = os.path.join(patient_dir, 'thumbnail')
+
+    allowed_extensions = [".webp",".jpg", ".jpeg", ".png"]
+    if not os.path.exists(thumbnail_dir):
+        return ""
+
+    # ファイルをタイムスタンプ順でソート (降順: 最新ファイルが先頭)
+
+    image_files = [
+        file for file in os.listdir(thumbnail_dir)
+        if os.path.splitext(file)[1].lower() in allowed_extensions
+    ]
+    
+    if not image_files:
+        return ""
+    image_files.sort(key=lambda x: os.path.getmtime(os.path.join(thumbnail_dir, x)), reverse=True)
+    
+    # 最初の画像のパスを返す
+    return os.path.join(thumbnail_dir, image_files[0])
 
 def get_from_pic():
     x = st.camera_input(label="診察券の写真をとってください", key="camera_input_file")
@@ -180,7 +283,6 @@ def extract_medical_id(input_text):
         patient_id = data.get("id", "").replace("-", "").replace(" ", "")
         patient_name = data.get("name", None)  # nameを取得
 
-        st.write(f"ChatGPT APIからの回答: {answer}")
         return patient_id, patient_name
 
     except json.JSONDecodeError:

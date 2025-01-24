@@ -1,20 +1,50 @@
 import streamlit as st
 import os
 from streamlit_float import *
+import base64
 from datetime import datetime  # 修正ポイント
 from PIL import Image
 from PIL import Image, ExifTags
 import utils.func
 
-utils.func.set_tab()
+utils.func.set_tab("#c9daf8")
 utils.func.set_header()
 # ヘッダー部分に患者情報を固定
+# ヘッダーとしてHTMLを使用
 header_container = st.container()
 with header_container:
     st.text(" 患者ID：" + st.session_state["PatientID"])
     st.text(" 患者名：" + st.session_state["PatientName"])
+header_css = float_css_helper(width="10rem", right="3rem", top='0.1rem', transition=50,background="rgba(255, 255, 255, 0)")
+header_container.float(header_css)
 
-header_css = float_css_helper(width="10rem", right="0rem", top='1rem', transition=50,background="rgba(255, 255, 255, 0)")
+
+header_container = st.container()
+with header_container:
+    img_path = utils.func.get_patient_image_path(st.session_state["PatientID"])
+    if img_path is not "":
+            # ローカル画像をbase64形式に変換
+        with open(img_path, "rb") as img_file:
+            base64_image = base64.b64encode(img_file.read()).decode("utf-8")
+        # HTMLで丸いアイコンを作成
+        html_code = f"""
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 50px;
+            height: 50px;
+            overflow: hidden;
+            border-radius: 50%;  /* 丸くする */
+            border: 2px solid #ddd;  /* 枠線を追加 */
+        ">
+            <img src="data:image/jpeg;base64,{base64_image}" style="width: 100%; height: 100%; object-fit: cover;" />
+        </div>
+        """
+
+        # StreamlitでHTMLを埋め込む
+        st.markdown(html_code, unsafe_allow_html=True)
+header_css = float_css_helper(width="10rem", right="6.5rem", top='0.6rem', transition=50,background="rgba(255, 255, 255, 0)")
 header_container.float(header_css)
 
 

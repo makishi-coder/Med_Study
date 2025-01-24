@@ -4,7 +4,6 @@ import os
 import sqlite3
 import utils.func
 
-
 from st_aggrid import GridOptionsBuilder, AgGrid
 from st_aggrid.shared import JsCode
 import base64
@@ -21,11 +20,12 @@ from azure.core.credentials import AzureKeyCredential
 from concurrent.futures import ThreadPoolExecutor
 
 utils.func.set_tab()
-utils.func.set_header()
+utils.func.set_header_home()
 
 button_container = st.container()
 with button_container:
     if st.button("👤✚"):
+        st.session_state.ex_id,st.session_state.ex_name = None,None
         st.switch_page("pages/patient_manager.py")
 
 button_css = float_css_helper(width="1rem", right="4rem", bottom='1rem', transition=0)
@@ -113,40 +113,14 @@ def search_patient_data(search_text):
     search_pattern = f"%{search_text}%"
     df = pd.read_sql_query(query, conn, params=(search_pattern, search_pattern))
     conn.close()
-    df["ImgPath"] = df["PatientID"].apply(get_patient_image_path)
+    df["ImgPath"] = df["PatientID"].apply(utils.func.get_patient_image_path)
     return df
-
-# 写真ディレクトリから画像パスを取得
-def get_patient_image_path(patient_id):
-    current_directory = os.path.dirname(os.path.abspath(__file__))
-    picture_directory = os.path.join(current_directory, 'pages','assets', 'Picture')
-    patient_dir = os.path.join(picture_directory, patient_id)
-    thumbnail_dir = os.path.join(patient_dir, 'thumbnail')
-
-    allowed_extensions = [".jpg", ".jpeg", ".png"]
-    
-    if not os.path.exists(thumbnail_dir):
-        return ""
-
-    # ファイルをタイムスタンプ順でソート (降順: 最新ファイルが先頭)
-
-    image_files = [
-        file for file in os.listdir(thumbnail_dir)
-        if os.path.splitext(file)[1].lower() in allowed_extensions
-    ]
-    
-    if not image_files:
-        return ""
-    image_files.sort(key=lambda x: os.path.getmtime(os.path.join(thumbnail_dir, x)), reverse=True)
-    
-    # 最初の画像のパスを返す
-    return os.path.join(thumbnail_dir, image_files[0])
 
 
 # データフレームの作成と画像パスの追加
 def create_patient_dataframe():
     df = fetch_patient_data()
-    df["ImgPath"] = df["PatientID"].apply(get_patient_image_path)
+    df["ImgPath"] = df["PatientID"].apply(utils.func.get_patient_image_path)
     return df
 
 
@@ -179,11 +153,14 @@ def process_images(df):
 
 # データフレームを作成
 # 検索フォーム
-ex_id = ""
-ex_name = ""
+if "ex_id" not in st.session_state:
+    st.session_state["ex_id"] = None
+if "ex_name" not in st.session_state:
+    st.session_state["ex_name"] = None
+
 if "camera_image" not in st.session_state:
     st.session_state.camera_image = None
-
+# リクエストのプロトコルを確認
 if st.toggle("カメラによる入力"):
     x = st.camera_input(label="診察券の写真をとってください", key="camera_input_file")
     if x is not None:
@@ -196,9 +173,10 @@ if st.toggle("カメラによる入力"):
                 ocr_result = utils.func.process_image(image_bytes)
                 print(ocr_result)
                 if ocr_result:
-                    ex_id,ex_name = utils.func.extract_medical_id(ocr_result)
+                    st.session_state.ex_id,st.session_state.ex_name = utils.func.extract_medical_id(ocr_result)
+                    st.rerun()
 
-search_text = st.text_input("検索",value=ex_id,label_visibility="hidden",placeholder="検索")
+search_text = st.text_input("検索",value=st.session_state.ex_id,label_visibility="hidden",placeholder="検索")
 
 # 検索処理
 st.text("画像を見たい患者をリストから選択してください")
@@ -230,7 +208,7 @@ else:
 
     # 表の描画
     response = AgGrid(df, gridOptions=grid_options, theme='streamlit', height=200,fit_columns_on_grid_load=True, allow_unsafe_jscode=True)
-
+    
     # session_state の初期化
     if "PatientID" not in st.session_state:
         st.session_state["PatientID"] = None
@@ -240,5 +218,6 @@ else:
     if response['selected_rows'] is not None:
         st.session_state["PatientID"] = response['selected_rows']['PatientID'].iloc[0]
         st.session_state["PatientName"] = response['selected_rows']['Name'].iloc[0]
+        st.session_state.ex_id,st.session_state.ex_name = None,None
         st.switch_page("pages/photo_manager.py")
 
