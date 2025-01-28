@@ -252,35 +252,37 @@ def format_date_time(date_time_str):
 # チェックボックスで選択された行をフィルタリング
 selected_rows = edited_df[edited_df["download"]]
 
-
-if not selected_rows.empty:
-    # メモリ上にZIPファイルを作成
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for index, row in selected_rows.iterrows():
-            # Base64部分を抽出してデコード
-            base64_data = extract_base64_data(row["file_path"])
-            try:
-                image_data = base64.b64decode(base64_data)
-            except base64.binascii.Error as e:
-                st.error(f"Base64デコードに失敗しました: {e}")
-                continue
-            
-            # ファイル名を設定
-            # ファイル名の生成（安全な形式に変換）
-            original_filename = f"{row['date']}_photo.png"
-            safe_filename = sanitize_filename(format_date_time(original_filename))
-
-            # ZIPファイルに追加
-            zip_file.writestr(safe_filename, image_data)
+if not df.empty:
+    if not selected_rows.empty:
+        # メモリ上にZIPファイルを作成
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for index, row in selected_rows.iterrows():
+                # Base64部分を抽出してデコード
+                base64_data = extract_base64_data(row["file_path"])
+                try:
+                    image_data = base64.b64decode(base64_data)
+                except base64.binascii.Error as e:
+                    st.error(f"Base64デコードに失敗しました: {e}")
+                    continue
+                
+                # ファイル名を設定
+                # ファイル名の生成（安全な形式に変換）
+                original_filename = f"{row['date']}_photo.png"
+                safe_filename = sanitize_filename(format_date_time(original_filename))
     
-    # ZIPファイルのポインタを先頭に戻す
-    zip_buffer.seek(0)
-
-    # ダウンロードボタンを作成
-    st.download_button(
-        label="選択した写真を一括ダウンロード",
-        data=zip_buffer.getvalue(),  # ZIPファイルを取得
-        file_name="selected_photos.zip",
-        mime="application/zip",
-    )
+                # ZIPファイルに追加
+                zip_file.writestr(safe_filename, image_data)
+        
+        # ZIPファイルのポインタを先頭に戻す
+        zip_buffer.seek(0)
+    
+        # ダウンロードボタンを作成
+        st.download_button(
+            label="選択した写真を一括ダウンロード",
+            data=zip_buffer.getvalue(),  # ZIPファイルを取得
+            file_name="selected_photos.zip",
+            mime="application/zip",
+        )
+else:
+    st.warning("写真が見つかりませんでした。")
