@@ -100,9 +100,14 @@ def set_header_home():
 
     st.markdown(const.HIDE_ST_STYLE, unsafe_allow_html=True)
 
+    # 現在のディレクトリの一つ上のディレクトリを取得
+    parent_dir = os.path.abspath(os.path.join(os.getcwd(), '..'))
+    # 画像のパスを作成
+    image_path = os.path.join(parent_dir, 'assets', 'logo_home.png')
+
     header_container = st.container()
     with header_container:
-        st.image("assets/logo_home.png",width=500)
+        st.image(image_path,width=500)
     header_css = float_css_helper(width="50rem", left="1rem", top='0.0rem', transition=50,background="rgba(255, 255, 255, 1)")
     header_container.float(header_css)
 
