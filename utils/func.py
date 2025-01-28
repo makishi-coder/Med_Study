@@ -164,9 +164,9 @@ def set_header():
     header_css = float_css_helper(width="500rem", left="0rem", top='0.0rem', transition=50,background="rgba(255, 255, 255, 1)")
     header_container.float(header_css)
 
-key = os.getenv("AZURE_API_KEY")
-endpoint = os.getenv("AZURE_ENDPOINT")
-openai.api_key = os.getenv("OPENAI_API_KEY")
+key = st.secrets["azure"]["api_key"]
+endpoint = st.secrets["azure"]["endpoint"]
+openai.api_key = st.secrets["openai"]["api_key"]
 
 
 # 写真ディレクトリから画像パスを取得

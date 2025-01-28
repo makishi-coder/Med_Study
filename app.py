@@ -32,9 +32,9 @@ button_css = float_css_helper(width="1rem", right="4rem", bottom='1rem', transit
 button_container.float(button_css)
 
 
-key = os.getenv("AZURE_API_KEY")
-endpoint = os.getenv("AZURE_ENDPOINT")
-openai.api_key = os.getenv("OPENAI_API_KEY")
+key = st.secrets["azure"]["api_key"]
+endpoint = st.secrets["azure"]["endpoint"]
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # データベース接続
 def get_db_connection():
