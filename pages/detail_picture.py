@@ -199,7 +199,7 @@ else:
             # 画像を回転させる
             st.session_state.rotated_image = st.session_state.rotated_image.rotate(-90)  # 90度回転
             st.session_state.rotated_image_thumb = st.session_state.rotated_image_thumb.rotate(-90)  # 90度回転
-    button_css3 = float_css_helper(width="1rem", right="12rem", bottom='7rem', transition=0)
+    button_css3 = float_css_helper(width="1rem", right="12rem", bottom='8rem', transition=0)
     button_container3.float(button_css3)
 
     # クローズボタン
