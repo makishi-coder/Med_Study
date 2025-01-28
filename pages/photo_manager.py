@@ -137,8 +137,7 @@ def update_Patient(id,name):
                 st.rerun()
 #############################
 if st.button("一括ダウンロード"):
-    if image_files is not none:
-        st.switch_page("pages/download_pictures.py")
+    st.switch_page("pages/download_pictures.py")
 ##########################
 button_container3 = st.container()
 with button_container3:
