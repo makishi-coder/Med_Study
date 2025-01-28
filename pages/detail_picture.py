@@ -100,9 +100,9 @@ def menu():
         if st.button("写真を回転",use_container_width=True):
             st.session_state.rotate  = True
             st.rerun()
-        if st.button("メラノーマ診断",use_container_width=True):
-            st.session_state.diagnosis  = True
-            st.rerun()
+        #if st.button("メラノーマ診断",use_container_width=True):
+        #    st.session_state.diagnosis  = True
+        #    st.rerun()
 
 
 @st.dialog("削除確認",width="small")
