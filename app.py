@@ -28,7 +28,7 @@ with button_container:
         st.session_state.ex_id,st.session_state.ex_name = None,None
         st.switch_page("pages/patient_manager.py")
 
-button_css = float_css_helper(width="1rem", right="4rem", bottom='1rem', transition=0)
+button_css = float_css_helper(width="1rem", right="4rem", bottom='3.5rem', transition=0)
 button_container.float(button_css)
 
 
