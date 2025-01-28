@@ -68,7 +68,7 @@ with button_container:
         st.switch_page("app.py")
 
 
-button_css = float_css_helper(width="1rem", left="2rem", bottom='2rem', transition=0)
+button_css = float_css_helper(width="1rem", left="2rem", bottom='3rem', transition=0)
 button_container.float(button_css)
 
 
@@ -143,7 +143,7 @@ button_container3 = st.container()
 with button_container3:
     if st.button("👤:material/edit:"):
         update_Patient(st.session_state["PatientID"],st.session_state["PatientName"])
-button_css3 = float_css_helper(width="2rem", right="6rem", bottom='2rem', transition=0)
+button_css3 = float_css_helper(width="2rem", right="6rem", bottom='3rem', transition=0)
 button_container3.float(button_css3)
 
 button_container2 = st.container()
@@ -161,7 +161,7 @@ with button_container2:
         st.switch_page("pages/add_picture.py")
         #st.switch_page("app.py")
 
-button_css2 = float_css_helper(width="2rem", right="1.5rem", bottom='2rem', transition=0)
+button_css2 = float_css_helper(width="2rem", right="1.5rem", bottom='3rem', transition=0)
 button_container2.float(button_css2)
 
 PatientID=st.session_state["PatientID"]
