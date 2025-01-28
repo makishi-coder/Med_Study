@@ -80,7 +80,7 @@ with button_container:
         st.switch_page("pages/photo_manager.py")
 
 
-button_css = float_css_helper(width="1rem", left="2rem", bottom='1rem', transition=0)
+button_css = float_css_helper(width="1rem", left="2rem", bottom='3.5rem', transition=0)
 button_container.float(button_css)
 
 st.write("")
